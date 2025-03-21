@@ -1,0 +1,17 @@
+[package]
+name = "rcrypto"
+version = "0.1.0"
+authors = []
+edition = "2021"
+
+[lib]
+name = "rcrypto"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.34.0"
+aead = "0.5.2"
+base64 = "0.21.2"
+rsa = {version = "0.9.6", features = ["sha2"]}
+pkcs8 = { version = "0.10.2" , features = ["pem", "encryption"]}

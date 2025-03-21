@@ -3,7 +3,7 @@ defmodule RCrypto do
   This module contains the NIF function to the rust library.
   """
 
-  use Rustler, otp_app: :whatsapp_flow_crypto, crate: "rcrypto"
+  use Rustler, otp_app: :whatsappx, crate: "rcrypto"
 
   @doc """
   This function fetches the private key from the pem string. The password is optional.
