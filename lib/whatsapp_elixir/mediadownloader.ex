@@ -1,5 +1,5 @@
 defmodule WhatsappElixir.MediaDl do
-  @api_url "https://graph.facebook.com/v20.0/"
+  @api_url "https://graph.facebook.com/v22.0/"
 
   # WhatsappElixir.Audio.get("1301759660809236", "99999", "MDX01")
 
@@ -9,17 +9,21 @@ defmodule WhatsappElixir.MediaDl do
 
     filename =
       case media_type do
-         :audio ->
+        :audio ->
           recording_path = System.get_env("AUDIO_RECORDING_PATH")
           "#{recording_path}/#{waba_id}-#{msisdn}-#{campaign}-#{task}.ogg"
 
-         :video ->
+        :video ->
           recording_path = System.get_env("VIDEO_RECORDING_PATH")
           "#{recording_path}/#{waba_id}-#{msisdn}-#{campaign}-#{task}.mp4"
 
-         :image ->
+        :image ->
           recording_path = System.get_env("IMAGE_RECORDING_PATH")
           "#{recording_path}/#{waba_id}-#{msisdn}-#{campaign}-#{task}.png"
+
+        :sticker ->
+          recording_path = System.get_env("IMAGE_RECORDING_PATH")
+          "#{recording_path}/#{waba_id}-#{msisdn}-#{campaign}-#{task}.gif"
       end
 
     headers = %{
@@ -28,6 +32,10 @@ defmodule WhatsappElixir.MediaDl do
     }
 
     url = @api_url <> media_id
+
+    IO.inspect(url, label: "url")
+    IO.inspect(filename, label: "filename")
+    IO.inspect(cloud_api_token, label: "cloud_api_token")
 
     case HTTPoison.get(url, headers) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
@@ -76,6 +84,68 @@ defmodule WhatsappElixir.MediaDl do
     end
   end
 
+  def upload(phone_number_id, filename) do
+    cloud_api_token = System.get_env("CLOUD_API_TOKEN")
+    url = "#{@api_url}#{phone_number_id}/media"
+
+    content_type =
+      if "application/octet-stream" == MIME.from_path(filename),
+        do: "audio/ogg",
+        else: MIME.from_path(filename)
+
+    body =
+      {:multipart,
+       [
+         {"messaging_product", "whatsapp"},
+         {:file, filename, [{"Content-Type", content_type}]}
+       ]}
+
+    headers = %{
+      "Authorization" => "Bearer #{cloud_api_token}"
+      # "Content-Type" => "application/json"
+    }
+
+    IO.inspect(url, label: "url")
+    IO.inspect(body, label: "body")
+    IO.inspect(headers, label: "headers")
+
+    case HTTPoison.post(url, body, headers) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %HTTPoison.Response{status_code: status_code}} ->
+        {:error, "Failed with status code #{status_code}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, reason}
+    end
+  end
+
+  def retrieve_media(phone_number_id, media_id, filename) do
+    cloud_api_token = System.get_env("CLOUD_API_TOKEN")
+    url = "#{@api_url}#{media_id}?phone_number_id=#{phone_number_id}"
+
+    headers = %{
+      "Authorization" => "Bearer #{cloud_api_token}"
+      # "Content-Type" => "application/json"
+    }
+
+    IO.inspect(url, label: "url")
+    IO.inspect(headers, label: "headers")
+
+    case HTTPoison.get(url, headers) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        download(Jason.decode!(body), headers, filename)
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %HTTPoison.Response{status_code: status_code}} ->
+        {:error, "Failed with status code #{status_code}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, Jason.decode!(reason)}
+    end
+  end
+
   def ogg_to_wav(ogg_file_name) do
     wav_file_name = String.replace(ogg_file_name, ".ogg", ".wav")
 
@@ -95,6 +165,31 @@ defmodule WhatsappElixir.MediaDl do
     case System.cmd("ffmpeg", command, stderr_to_stdout: true) do
       {output, 0} ->
         {:ok, wav_file_name}
+
+      {output, _} ->
+        {:error, "Error ffmpeg: #{output}"}
+    end
+  end
+
+  def wav_to_ogg(wav_file_name) do
+    ogg_file_name = String.replace(wav_file_name, ".wav", ".ogg")
+
+    command = [
+      "-y",
+      "-i",
+      wav_file_name,
+      "-c:a",
+      "libopus",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      ogg_file_name
+    ]
+
+    case System.cmd("ffmpeg", command, stderr_to_stdout: true) do
+      {output, 0} ->
+        {:ok, ogg_file_name}
 
       {output, _} ->
         {:error, "Error ffmpeg: #{output}"}

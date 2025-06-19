@@ -29,12 +29,16 @@ defmodule WhatsappElixir.Static do
             phone_number_id: get_phone_number_id(data),
             display_phone_number: get_display_phone_number(data),
             wa_message_id: get_message_id(data),
+            ref_whatsapp_id: get_ref_whatsapp_id(data),
             sender_phone_number: get_mobile(data),
             message: get_message(data),
             message_type: get_message_type(data),
             flow: is_flow?(data),
+            image_id: get_image_id(data),
+            sticker_id: get_sticker_id(data),
             audio_id: get_audio_id(data),
             video_id: get_video_id(data),
+            image_caption: get_image_caption(data),
             scheduled: false,
             forwarded: is_forwarded?(data)
           ]
@@ -43,10 +47,9 @@ defmodule WhatsappElixir.Static do
   end
 
   def get_waba_id(data) do
-    data =
-      data["entry"]
-      |> List.first()
-      |> Map.get("id")
+    data["entry"]
+    |> List.first()
+    |> Map.get("id")
   end
 
   @doc """
@@ -71,10 +74,24 @@ defmodule WhatsappElixir.Static do
       |> List.first()
       |> Map.get("value")
 
-      case data do
-        %{"messages" => [%{"context" => %{"forwarded" => forwarded}} | _]} -> forwarded
-        _ -> false
-      end
+    case data do
+      %{"messages" => [%{"context" => %{"forwarded" => forwarded}} | _]} -> forwarded
+      _ -> false
+    end
+  end
+  
+  def get_ref_whatsapp_id(data) do
+    data =
+      data["entry"]
+      |> List.first()
+      |> Map.get("changes")
+      |> List.first()
+      |> Map.get("value")
+
+    case data do
+      %{"messages" => [%{"context" => %{"id" => id}} | _]} -> id
+      _ -> nil
+    end
   end
 
   def pronto(file) do
@@ -240,6 +257,18 @@ defmodule WhatsappElixir.Static do
         nil
     end
   end
+  
+  def get_response_message_id(response) do
+    cond do
+      Map.has_key?(response, "messages") ->
+        response["messages"]
+        |> List.first()
+        |> Map.get("id")
+
+      true ->
+        nil
+    end
+  end
 
   @doc """
   Extracts the timestamp of the message from the data received from the webhook.
@@ -340,6 +369,60 @@ defmodule WhatsappElixir.Static do
       nil
     end
   end
+  
+  def get_image_id(data), do: get_image_id(data, get_message_type(data))
+
+  @doc """
+  Extracts the audio id of the sender from the data received from the webhook.
+  #TODO: implement ffmpeg function
+  """
+  def get_image_id(data, "image") do
+    data =
+      data["entry"]
+      |> List.first()
+      |> Map.get("changes")
+      |> List.first()
+      |> Map.get("value")
+
+    if Map.has_key?(data, "messages") do
+      data["messages"]
+      |> List.first()
+      |> Map.get("image")
+      |> Map.get("id")
+    else
+      nil
+    end
+  end
+
+  def get_image_id(_data, _), do: nil
+  
+  
+  def get_sticker_id(data), do: get_sticker_id(data, get_message_type(data))
+
+  @doc """
+  Extracts the audio id of the sender from the data received from the webhook.
+  #TODO: implement ffmpeg function
+  """
+  def get_sticker_id(data, "sticker") do
+    data =
+      data["entry"]
+      |> List.first()
+      |> Map.get("changes")
+      |> List.first()
+      |> Map.get("value")
+
+    if Map.has_key?(data, "messages") do
+      data["messages"]
+      |> List.first()
+      |> Map.get("sticker")
+      |> Map.get("id")
+    else
+      nil
+    end
+  end
+
+  def get_sticker_id(_data, _), do: nil
+  
 
   def get_audio_id(data), do: get_audio_id(data, get_message_type(data))
 
@@ -365,9 +448,7 @@ defmodule WhatsappElixir.Static do
     end
   end
 
-  def get_audio_id(data, _), do: nil
-
-
+  def get_audio_id(_data, _), do: nil
 
   def get_video_id(data), do: get_video_id(data, get_message_type(data))
 
@@ -393,7 +474,7 @@ defmodule WhatsappElixir.Static do
     end
   end
 
-  def get_video_id(data, _), do: nil
+  def get_video_id(_data, _), do: nil
 
   @doc """
   Extracts the video of the sender from the data received from the webhook.
@@ -414,6 +495,34 @@ defmodule WhatsappElixir.Static do
       nil
     end
   end
+  
+  
+  def get_image_caption(data), do: get_image_caption(data, get_message_type(data))
+
+  @doc """
+  Extracts the audio id of the sender from the data received from the webhook.
+  #TODO: implement ffmpeg function
+  """
+  def get_image_caption(data, "image") do
+    data =
+      data["entry"]
+      |> List.first()
+      |> Map.get("changes")
+      |> List.first()
+      |> Map.get("value")
+
+    if Map.has_key?(data, "messages") do
+      data["messages"]
+      |> List.first()
+      |> Map.get("image")
+      |> Map.get("caption")
+    else
+      nil
+    end
+  end
+
+  def get_image_caption(_data, _), do: nil
+  
 
   @doc """
   Gets the type of the message sent by the sender from the data received from the webhook.

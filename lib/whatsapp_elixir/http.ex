@@ -11,7 +11,7 @@ defmodule WhatsappElixir.HTTP do
     phone_number_id: "",
     verify_token: "",
     base_url: "https://graph.facebook.com",
-    api_version: "v20.0"
+    api_version: "v22.0"
   ]
 
   @spec config(keyword()) :: keyword()
@@ -31,18 +31,8 @@ defmodule WhatsappElixir.HTTP do
   @doc """
   Sends a POST request to the specified endpoint with the given body.
   """
-  def post(endpoint, body, opts \\ [], include_phone_number_id \\ true) do
+  def post(endpoint, phone_number_id, body, opts \\ [], include_phone_number_id \\ true) do
     config_opts = config(opts)
-
-    # Get phone_number_id if needed
-    phone_number_id =
-      if include_phone_number_id do
-        config(config_opts) |> Keyword.get(:phone_number_id)
-      end
-
-    if include_phone_number_id and (phone_number_id == "" or phone_number_id == nil) do
-      raise ArgumentError, "phone_number_id must be provided"
-    end
 
     token = config(config_opts) |> Keyword.get(:token)
 
@@ -58,7 +48,166 @@ defmodule WhatsappElixir.HTTP do
         "#{base_url(config_opts)}/#{api_version(config_opts)}/#{endpoint}"
       end
 
+    IO.inspect(url, label: "url")
+    IO.inspect(Jason.encode!(body), label: "body")
+    IO.inspect(headers(token), label: "headers")
+
     case Req.post(url, body: Jason.encode!(body), headers: headers(token)) do
+      {:ok, %Response{status: status, body: body}} when status in 200..299 ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{status: status, body: body}} ->
+        Logger.error(
+          "[WHATSAPP_ELIXIR] HTTP request failed with status #{status}: #{inspect(body)}"
+        )
+
+        {:error, Jason.decode!(body)}
+
+      {:error, reason} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def post_form(endpoint, phone_number_id, fields, body, opts \\ []) do
+    config_opts = config(opts)
+
+    token = config(config_opts) |> Keyword.get(:token)
+
+    if token == "" do
+      raise ArgumentError, "Missing App Token"
+    end
+
+    url = "#{base_url(config_opts)}/#{api_version(config_opts)}/#{phone_number_id}/#{endpoint}"
+
+    IO.inspect(url, label: "url")
+    IO.inspect(fields, label: "fields")
+    IO.inspect(body, label: "body")
+    IO.inspect(headers(token), label: "headers")
+
+    case Req.post(url, body: Jason.encode!(body), form_multipart: fields, headers: headers(token)) do
+      {:ok, %Response{status: status, body: body}} when status in 200..299 ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{status: status, body: body}} ->
+        Logger.error(
+          "[WHATSAPP_ELIXIR] HTTP request failed with status #{status}: #{inspect(body)}"
+        )
+
+        {:error, Jason.decode!(body)}
+
+      {:error, reason} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Sends a GET request for access_token.
+  """
+  def get_no_header(endpoint, params, opts \\ [], waba_id \\ "") do
+    config_opts = config(opts)
+
+    url =
+      if waba_id == "" do
+        "#{base_url(config_opts)}/#{api_version(config_opts)}/#{endpoint}"
+      else
+        "#{base_url(config_opts)}/#{api_version(config_opts)}/#{waba_id}/#{endpoint}"
+      end
+
+    case Req.get(url, params: params) do
+      {:ok, %Response{status: status, body: body}} when status in 200..299 ->
+      if waba_id == "" do
+        {:ok, body}
+      else
+        {:ok, Jason.decode!(body)}
+      end
+
+      {:ok, %Response{status: status, body: body}} ->
+        Logger.error(
+          "[WHATSAPP_ELIXIR] HTTP request failed with status #{status}: #{inspect(body)}"
+        )
+
+        {:error, Jason.decode!(body)}
+
+      {:error, reason} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def post_subscribed_apps(endpoint, body, access_token, waba_id, opts \\ []) do
+    config_opts = config(opts)
+
+    url = "#{base_url(config_opts)}/#{api_version(config_opts)}/#{waba_id}/#{endpoint}"
+
+    case Req.post(url, body: Jason.encode!(body), headers: headers(access_token)) do
+      {:ok, %Response{status: status, body: body}} when status in 200..299 ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{status: status, body: body}} ->
+        Logger.error(
+          "[WHATSAPP_ELIXIR] HTTP request failed with status #{status}: #{inspect(body)}"
+        )
+
+        {:error, Jason.decode!(body)}
+
+      {:error, reason} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def get_subscribed_apps(endpoint, access_token, waba_id, opts \\ []) do
+    config_opts = config(opts)
+
+    url = "#{base_url(config_opts)}/#{api_version(config_opts)}/#{waba_id}/#{endpoint}"
+
+    case Req.get(url, headers: headers(access_token)) do
+      {:ok, %Response{status: status, body: body}} when status in 200..299 ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{status: status, body: body}} ->
+        Logger.error(
+          "[WHATSAPP_ELIXIR] HTTP request failed with status #{status}: #{inspect(body)}"
+        )
+
+        {:error, Jason.decode!(body)}
+
+      {:error, reason} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def delete_subscribed_apps(endpoint, access_token, waba_id, opts \\ []) do
+    config_opts = config(opts)
+
+    url = "#{base_url(config_opts)}/#{api_version(config_opts)}/#{waba_id}/#{endpoint}"
+
+    case Req.delete(url, headers: headers(access_token)) do
+      {:ok, %Response{status: status, body: body}} when status in 200..299 ->
+        {:ok, Jason.decode!(body)}
+
+      {:ok, %Response{status: status, body: body}} ->
+        Logger.error(
+          "[WHATSAPP_ELIXIR] HTTP request failed with status #{status}: #{inspect(body)}"
+        )
+
+        {:error, Jason.decode!(body)}
+
+      {:error, reason} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def post_register_cust_ph(endpoint, access_token, phone_number_id, body, opts \\ []) do
+    config_opts = config(opts)
+
+    url = "#{base_url(config_opts)}/#{api_version(config_opts)}/#{phone_number_id}/#{endpoint}"
+
+    case Req.post(url, body: Jason.encode!(body), headers: headers(access_token)) do
       {:ok, %Response{status: status, body: body}} when status in 200..299 ->
         {:ok, body}
 

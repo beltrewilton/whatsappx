@@ -49,8 +49,7 @@ defmodule Whatsappx.MixProject do
   end
 
   defp deps do
-    # export WHATSAPP_FLOW_CRYPTO_PATH=/Users/beltre.wilton/apps/whatsapp_flow_crypto
-    # export WHATSAPP_FLOW_CRYPTO_PATH=/home/wilton/plex_env/whatsapp_flow_crypto
+    # export WHATSAPP_FLOW_CRYPTO_PATH=/home/wilton/plex_env/whatsappx
 
     [
       {:req, "~> 0.5.6"},
